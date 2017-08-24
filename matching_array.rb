@@ -40,10 +40,8 @@ class MatchingArray
   # 条件にマッチした要素を一つ見つけ、popします
   def find_and_pop
     items = select { |item| yield item }
-
     # 厳密な一対一対応をさせたいので、複数の要素が条件にマッチするときには例外を投げます
     raise MultipleItemsMatchError.new(items[0], items[1]) if items.length > 1
-
     matched_item = items.first
     delete(matched_item)
     matched_item
