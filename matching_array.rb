@@ -6,7 +6,7 @@ require 'pry'
 class MatchingArray
   # Arrayから必要なメソッドだけつまみたいので移譲パターンを使います
   extend(Forwardable)
-  def_delegators(:@array, :map!, :compact!, :delete)
+  def_delegators(:@array, :map!, :compact!, :delete, :select)
   def_delegator(:@array, :inspect, :to_s)
 
   def initialize(array)
@@ -39,10 +39,10 @@ class MatchingArray
 
   # 条件にマッチした要素を一つ見つけ、popします
   def find_and_pop
-    items = @array.select { |item| yield item }
+    items = select { |item| yield item }
     if items.length > 1
-    # 厳密な一対一対応をさせたいので、複数の要素が条件にマッチするときには例外を吐きます
-      MultipleItemsMatchError.new(items[0], items[1])
+    # 厳密な一対一対応をさせたいので、複数の要素が条件にマッチするときには例外を投げます
+      raise MultipleItemsMatchError.new(items[0], items[1])
     else
       matched_item = items.first
       delete(matched_item)
