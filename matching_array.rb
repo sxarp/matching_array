@@ -11,7 +11,6 @@ class MatchingArray
 
   def initialize(array)
     @array = Array.new(array)
-    self
   end
 
   # 自分と相手の持つ要素達から条件を満たすペアを取り出します
