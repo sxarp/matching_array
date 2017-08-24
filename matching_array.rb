@@ -4,8 +4,9 @@ require 'forwardable'
 require 'pry'
 
 class MatchingArray
-  extend(Forwardable) #Arrayから必要なメソッドだけつまみたいので移譲パターンを使います
-  def_delegators(:@array, :map!, :compact!)
+  # Arrayから必要なメソッドだけつまみたいので移譲パターンを使います
+  extend(Forwardable)
+  def_delegators(:@array, :map!, :compact!, :delete)
   def_delegator(:@array, :inspect, :to_s)
 
   def initialize(array)
@@ -13,39 +14,41 @@ class MatchingArray
     self
   end
 
-  #自分と相手の持つ要素達から条件を満たすペアを取り出します
+  # 自分と相手の持つ要素達から条件を満たすペアを取り出します
   def match(another_matching_array)
     matched_items = []
     map! do |item|
-      matched_another_item = another_matching_array.find_and_pop { |another_item| yield(item, another_item) }
-      if matched_another_item
-        matched_items << [item, matched_another_item]
-        nil
-      else
-        item
+      matched_another_item = another_matching_array.find_and_pop do |another_item|
+        yield(item, another_item)
       end
-    end.compact! #条件にマッチした要素を消します
+      pop_and_push(item, matched_items, matched_another_item)
+    end.delete(:matched_then_deleted)
     matched_items
   end
 
   protected
 
-    #条件にマッチした要素を一つ見つけ、popします
-    def find_and_pop
-      matched_item = nil
-      map! do |item|
-        condition_true = yield item
-        #厳密な一対一対応をさせたいので、複数の要素が条件にマッチするときには例外を吐きます
-        raise MultipleItemsMatchError.new(matched_item, item) if matched_item && condition_true
-        if condition_true
-          matched_item = item
-          nil
-        else
-          item
-        end
-      end.compact! #条件にマッチした要素を消します
-      matched_item
+  def pop_and_push(item, matched_items, matched_another_item)
+    if matched_another_item
+      matched_items << [item, matched_another_item]
+      :matched_then_deleted
+    else
+      item
     end
+  end
+
+  # 条件にマッチした要素を一つ見つけ、popします
+  def find_and_pop
+    items = @array.select { |item| yield item }
+    if items.length > 1
+    # 厳密な一対一対応をさせたいので、複数の要素が条件にマッチするときには例外を吐きます
+      MultipleItemsMatchError.new(items[0], items[1])
+    else
+      matched_item = items.first
+      delete(matched_item)
+    end
+    matched_item
+  end
 end
 
 class MultipleItemsMatchError < StandardError
@@ -57,20 +60,22 @@ class MultipleItemsMatchError < StandardError
   end
 end
 
-
-#簡単な使用例
+# 簡単な使用例
 
 original_array = (1..10).to_a
 
-num_array = MatchingArray.new(original_array)
-puts "数字の入った配列:#{num_array}"
+num_array = MatchingArray.new(original_array.map { |num| 2 * num })
+puts "数字の入った配列: #{num_array}"
 
 str_array = MatchingArray.new(original_array.map(&:to_s))
-puts "文字列の入った配列:#{str_array}"
+puts "文字列の入った配列: #{str_array}"
 
 # matchを使ったペアの抽出
 matched_pairs = num_array.match(str_array) do |num, str|
   num.to_s == str
 end
 
-puts "{ num.to_s == str }の条件でマッチしたペア:#{matched_pairs}"
+puts "{ num.to_s == str }の条件でマッチしたペア: #{matched_pairs}"
+
+puts "抽出後の数字の入った配列: #{num_array}"
+puts "抽出後の文字列の入った配列: #{str_array}"
